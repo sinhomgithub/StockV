@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Render IP 與時間查詢範例</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            text-align: center;
+            margin-top: 100px;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: inline-block;
+            max-width: 400px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #333;
+            text-align: left;
+            background: #eef2f7;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>Render 伺服器資訊測試</h2>
+        <p>點擊下方按鈕取得你的 IP 與伺服器時間：</p>
+        <button id="fetchBtn">取得資訊</button>
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        document.getElementById('fetchBtn').addEventListener('click', async () => {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '讀取中...';
+
+            try {
+                const response = await fetch('/api/info');
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    🌐 <strong>你的 IP 位址：</strong> ${data.ip}<br><br>
+                    ⏰ <strong>伺服器時間：</strong> ${data.time}
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = '❌ 取得資料失敗，請稍後再試。';
+                console.error(error);
+            }
+        });
+    </script>
+
+</body>
+</html>
