@@ -3,17 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock</title>    
+    <title>AllStock 1.0.0</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 1.0rem;
-        }      
-        input[type="text"] {
-            width: 80%;
-            padding: 8px;
-            margin-bottom: 0.2rem;
         }
+
         textarea {
             width: 96%;
             height: 40.0rem;
@@ -21,20 +17,41 @@
             /*box-sizing: border-box;*/ /* 讓 padding 不影響整體寬度 */
         }
     </style>
+    <script src="Scripts/jquery-1.9.1.min.js"></script>
+    <script src="Scripts/appHelper.js?_=20260616001"></script>
 </head>
-<body>    
-    <input type="text" id="stockIdInput" value="t00,2330,0050,00631L"            
-           placeholder="請輸入您要讀取的 Stock 清單, 不同 Stock 代碼請用逗號分隔. (Ex: t00,2330,0050,00631L)" />
+<body> 
+    <table width="100%" border="0">
+        <tr>
+            <td style="width:1px;" valign="top" >
+                <select id="dataSourceSelect" style="height:2.2rem;" onchange="dataSourceSelect_OnChange();" >
+                    <option value="TwStock">TwStock</option>
+                    <option value="StockQ">StockQ</option>
+                </select>
+            </td>
+            <td valign="top" style="width:99%;">
+                <input type="text" id="twStockTextBox" value="t00,2330,0050,00631L" style="width:99%;padding-top:0.5rem;padding-bottom:0.5rem;"
+                       placeholder="請輸入您要讀取的 Stock 清單, 不同 Stock 代碼請用逗號分隔. (Ex: t00,2330,0050,00631L)" />
+                <input type="text" id="stockQTextBox" value="美元/台幣,道瓊工業,黃金"  style="width:99%;padding-top:0.5rem;padding-bottom:0.5rem;display:none;"
+                       placeholder="請輸入您要讀取的 Stock 清單, 不同 StockQ 代碼請用逗號分隔. (Ex: 美元/台幣,道瓊工業,黃金)" />
+            </td>
+            <td style="width:1.0rem;" >
+                <a href="https://tw.stock.yahoo.com/" target="_blank" id="twStockLink">YahooStock</a>
+                <a href="https://www.stockq.org/" target="_blank" id="stockQLink" style="display:none;" >StockQ</a>
+            </td>
+        </tr>
+    </table>
+    
 
     <table style="border:1px solid #B0B0B0; background-color: #F0F0F0; margin-bottom:0.1rem; " >
         <tr>
             <td valign="middle">
                 <button style="font-size:1.0rem;" onclick="readStock()">更新</button>
             </td>
-            <td valign="middle">
-                <label style="font-size:1.0rem;">更新倒數</label>
+            <td valign="middle" style="text-align: right;" >
+                <label style="font-size:1.0rem;">倒數</label>
             </td>
-            <td valign="middle" style="width: 4.0rem; text-align: right;">
+            <td valign="middle" style="width: 2.5rem; text-align: right;">
                 <label style="font-size:1.0rem; text-align:right;" id="counterLabel">0</label>
             </td>
             <td valign="middle">
@@ -62,15 +79,24 @@
                 <input type="checkbox" id="carouselCheckBox" onchange="carouselCheckBox_OnChange();" />
                 <label for="carouselCheckBox" sytle="font-size:1.0rem;">標題列輪播</label>
             </td>
+            <td>
+                <label id="nowLabel" >00:00:00</label>&nbsp;
+                <a href="schedule.html">排程通知</a>
+            </td>
         </tr>
     </table>
 
-    <textarea id="responseArea" readonly placeholder="輸出..."></textarea>
+    <textarea id="responseArea" readonly placeholder="輸出..." ></textarea>
     <br />
 
     <div>
         <button onclick="copyResult();" style="font-size:1.0rem;">複製輸出</button>
         <label id="copyLabel">N/a</label>
+    </div>
+    <div>
+        <label>精簡輸出
+            <input type="checkbox" id="simpleCheckBox"  />
+        </label>
     </div>
 
     <button onclick="testFunc();" style="font-size:1.0rem; display:none;">Test</button>
@@ -88,6 +114,89 @@
         }
 
     </script>
+
+    <script>
+        function dataSourceSelect_OnChange() {
+            var dataSourceSelect = document.getElementById('dataSourceSelect');
+            if (dataSourceSelect.value == 'StockQ') {
+                document.getElementById('twStockTextBox').style.display = 'none';
+                document.getElementById('twStockLink').style.display = 'none';
+
+                document.getElementById('stockQTextBox').style.display = '';
+                document.getElementById('stockQLink').style.display = '';
+            }
+            else {
+                document.getElementById('twStockTextBox').style.display = '';
+                document.getElementById('twStockLink').style.display = '';
+
+                document.getElementById('stockQTextBox').style.display = 'none';
+                document.getElementById('stockQLink').style.display = 'none';
+            }
+
+        }
+    </script>
+
+    <!-- 排程通知功能 -->
+    <script>
+        var m_scheduleTimer = null;
+        var m_scheduleProcessTime = new Date(new Date().getTime() - 60 * 1000);     // 設定最後處理時間為一分鐘前，以確保一開始就可以 Run
+
+        function initialSchedule() {
+
+            // 每一秒跑一次, 以正確更新時間
+            var dt = 1 * 1000;
+            m_scheduleTimer = window.setInterval(scheduleTimer_OnTick, dt);
+        }
+
+        initialSchedule();
+
+        function scheduleTimer_OnTick() {
+
+            // 顯示現在時間
+            var nowTime = appHelper.dateToHHMMSS(new Date());            
+            $("#nowLabel").text(nowTime);
+
+            // 兩次處理間隔要超過 30 秒
+            var deltaSecond = (new Date().getTime() - m_scheduleProcessTime.getTime()) / 1000;
+            if (deltaSecond < 30)
+                return;
+
+            m_scheduleProcessTime = new Date(); // 紀錄最後處理時間
+
+            // 載入設定
+            var savePackage = appHelper.loadStockPackage();
+
+            if (typeof (savePackage.scheduleList) == "undefined" && savePackage.scheduleList == null || savePackage.scheduleList.length <= 0)
+                return;
+
+            var isTrigger = false;
+            for (var i = 0; i < savePackage.scheduleList.length; i++) {
+                var item = savePackage.scheduleList[i];
+
+                var b = appHelper.checkNotifyTrigger(new Date, item.triggerTime, item.lastTriggerTime);
+
+                if (b == false)
+                    continue;
+
+                appHelper.showNotify(item.itemName + "(" + item.triggerTime + ")", item.itemText, item.autoClose);
+
+                console.log("showNotify at " + (new Date()).toString());
+                console.log("itemName: " + item.itemName + "\r\nitemText: " + item.itemText + "\r\nautoClose: " + item.autoClose)
+
+                item.lastTriggerTime = new Date();
+
+                isTrigger = true;
+            }
+
+            if (isTrigger == true) {
+                appHelper.saveStockPackage(savePackage);
+                console.log("Notify trigger, save package.");
+            }
+        }
+
+    </script>
+
+
 
 
     <!-- 標題輪播功能 -->
@@ -110,10 +219,9 @@
             if (b == false) {
                 return;
             }
-
-
-            var oldStockPackage = loadStockPackage();
-            if (oldStockPackage == null || typeof (oldStockPackage.stockIdList) == "undefined")
+            
+            var oldStockPackage = appHelper.loadStockPackage();
+            if (oldStockPackage == null || typeof (oldStockPackage.data) == "undefined")
                 return;
 
             // 輪播順序
@@ -124,21 +232,19 @@
             // Count => NOW  Ex: "11:41:52"
             // ps. 每十秒輪播一個 Item
 
-
-
             var txt = "";
 
             // Count => NOW
-            if (m_flashIndex == oldStockPackage.stockIdList.length) {
+            if (m_flashIndex == oldStockPackage.data.length) {
                 txt = formatTimeHHMM(new Date());
             }
 
             // 0 ~ Count-1 => Display StockId + deltaPriceRate
-            if (m_flashIndex >= 0 && m_flashIndex < oldStockPackage.stockIdList.length) {
+            if (m_flashIndex >= 0 && m_flashIndex < oldStockPackage.data.length) {
 
-                var stockId = oldStockPackage.stockIdList[m_flashIndex];
-                var oldItem = oldStockPackage.data[stockId];
+                var oldItem = oldStockPackage.data[m_flashIndex];
 
+                var stockId = oldItem.stockId;
                 var previousClosePrice = oldItem.previousClosePrice;
                 var currentPrice = previousClosePrice;
 
@@ -166,7 +272,7 @@
 
             m_flashIndex++;
 
-            if (m_flashIndex > oldStockPackage.stockIdList.length) {
+            if (m_flashIndex > oldStockPackage.data.length) {
                 m_flashIndex = 0;
             }
 
@@ -191,78 +297,7 @@
 
                 // 停止靜音訊，以釋放資源
                 stopBackgroundTasks();
-            }
-       
-        }
-    </script>
-
-    <!-- StockPackage 儲存 -->
-    <script>
-        // 儲存 StockPackage
-        function saveStockPackage(o) {
-            // savedData:
-            // {
-            //    "stockIdList": [
-            //        "t00",
-            //        "2330",
-            //        "0050",
-            //        "0052",
-            //        "00631L"
-            //    ],
-            //    "lastTime": "2025-11-27T04:38:01.925Z",
-            //    "data": {
-            //        "2330": {
-            //            "id": "2330",
-            //            "name": "台積電",
-            //            "fullName": "台灣積體電路製造股份有限公司",
-            //            "openPrice": 1450,
-            //            "previousClosePrice": 1440,
-            //            "highPrice": 1455,
-            //            "lowPrice": 1430,
-            //            "currentPrice": 1430,
-            //            "totalValue": 15836,
-            //            "time": "12:37:54"
-            //        },
-            //        "t00": {
-            //            "id": "t00",
-            //            "name": "發行量加權股價指數",
-            //            "fullName": "",
-            //            "openPrice": 27517.24,
-            //            "previousClosePrice": 27409.54,
-            //            "highPrice": 27659.06,
-            //            "lowPrice": 27436.59,
-            //            "currentPrice": 27462.87,
-            //            "totalValue": "",
-            //            "time": "12:38:00"
-            //        }
-            //    },
-            //    "carousel": false,
-            //    "autoUpdate": 60
-            //}
-            //
-
-            var json = JSON.stringify(o);
-            localStorage.setItem("STOCK_SAVE1", json);
-        }
-
-        // 讀取 StockPackage
-        function loadStockPackage() {
-            var stockPackage = null;
-            try {
-                var json = localStorage.getItem("STOCK_SAVE1");
-                var o = JSON.parse(json);
-
-                if (typeof (o.lastTime) != "undefined") {                
-                    // 解序列化 lastTime 屬性
-                    o.lastTime = new Date(o.lastTime);
-                }
-
-                stockPackage = o;
-
-            } catch (e) {
-            }
-
-            return stockPackage;
+            }            
         }
     </script>
 
@@ -276,14 +311,23 @@
         function initialForm() {
             var responseArea = document.getElementById("responseArea");
 
-            var oldStockPackage = loadStockPackage();
+            var oldStockPackage = appHelper.loadStockPackage();
             console.log("Initial data.");
             console.log(oldStockPackage);
 
             // 載入最後輸入的清單
-            if (oldStockPackage != null && typeof (oldStockPackage.stockIdList) != "undefined") {
-                var txt = oldStockPackage.stockIdList.join(",");
-                document.getElementById("stockIdInput").value = txt;
+            if (oldStockPackage != null) {
+                // TwStock
+                if (typeof (oldStockPackage.twStockIdList) != "undefined") {
+                    var txt = oldStockPackage.twStockIdList.join(",");
+                    document.getElementById("twStockTextBox").value = txt;
+                }
+
+                // StockQ
+                if (typeof (oldStockPackage.stockQIdList) != "undefined") {
+                    var txt = oldStockPackage.stockQIdList.join(",");
+                    document.getElementById("stockQTextBox").value = txt;
+                }
             }
 
 
@@ -295,13 +339,12 @@
                     responseArea.value = "上次資料取時間: " + oldStockPackage.lastTime;
                 }
 
-                // 載入自動更新設定
-                var updateTickSelect = document.getElementById("updateTickSelect");
+                // 載入自動更新設定                
                 if (typeof (oldStockPackage.autoUpdate) != "undefined") {
+                    var updateTickSelect = document.getElementById("updateTickSelect");
                     updateTickSelect.value = oldStockPackage.autoUpdate;
                     console.log("load autoUpdate=" + oldStockPackage.autoUpdate);
-                }
-
+                }              
             }
 
             m_downCountTimer = window.setInterval(downCountTimerProc, 1000);
@@ -342,12 +385,12 @@
 
 
             // 儲存自動更新參數
-            var savedData = loadStockPackage();
+            var savedData = appHelper.loadStockPackage();
             if (savedData == null)
                 savedData = {};
 
             savedData.autoUpdate = tick;
-            saveStockPackage(savedData);
+            appHelper.saveStockPackage(savedData);
 
             console.log("AutoUpdate=" + tick);
         }
@@ -365,57 +408,88 @@
 
         function readStock() {
 
-            var inputText = document.getElementById("stockIdInput").value;
+            // 將輸入參數轉成 SockId Array, 讀取最新資料, 並顯示最新行情
+            var twStockText = document.getElementById("twStockTextBox").value;
+            var stockQText = document.getElementById("stockQTextBox").value;
 
-            if (inputText == '') {
-                alert("請輸入 StockId ,若有多筆請用逗號分隔. (Ex: t00,0050,0052) ");
+            if (twStockText == '' && stockQText == '') {
+                alert("請輸入 TwStock 或者 StockQ 的 StockId, 若有多筆請用逗號分隔 !");
                 return;
             }
 
             // 字串轉成 Array
-            var items = inputText.split(",");
-            var stockIdList = [];
+            var twStockItems = twStockText.split(",");
+            var twStockIdList = [];
+            for (var i = 0; i < twStockItems.length; i++) {
+                var stockId = twStockItems[i].trim();
+                twStockIdList.push(stockId);
+            }
 
-            for (var i = 0; i < items.length; i++) {
-                var stockId = items[i].trim();
-                stockIdList.push(stockId);
+            var stockQItems = stockQText.split(",");
+            var stockQIdList = [];
+            for (var i = 0; i < stockQItems.length; i++) {
+                var stockId = stockQItems[i].trim();
+                stockQIdList.push(stockId);
             }
 
             var responseArea = document.getElementById("responseArea");
 
-            var oldStockPackage = loadStockPackage(); // 讀取上次的儲存結果
+            var oldStockPackage = appHelper.loadStockPackage(); // 讀取上次的儲存結果
 
-            responseArea.value = "Read Stock ... " + stockIdList.join(",");
+            responseArea.value = "Read Stock ... " + twStockIdList.join(",") + " " +stockQIdList.join(",");
 
-            fetchStockData(stockIdList, function (error, stockData) {
+            fetchStockData(twStockIdList, stockQIdList, function (error, stockData) {
                 if (error) {
                     // 顯示錯誤訊息
-                    responseArea.value = `錯誤：${error.message}`;
+                    responseArea.value = "錯誤：" + error.message;
                     console.log(error);
                 } else {
 
                     console.log(stockData);
-
+                                        
                     var o = stockData;
 
                     var str = "";
-                    for (var i = 0; i < stockIdList.length; i++) {
-                        var stockId = stockIdList[i];
-                        var stockObject = o[stockId];
+                    for (var i = 0; i < stockData.length; i++) {
+                        var dataItem = stockData[i];
 
-                        // 跳過無效的代碼
-                        if (typeof (stockObject) == "undefined" || stockObject == null)
-                            continue;
+                        // 單筆資料
+                        //{
+                        //    "dataSource": "TwStock",
+                        //    "stockId": "2330",
+                        //    "stockName": "台積電",
+                        //    "currentPrice": 1760,
+                        //    "previousClosePrice": 1785
+                        //}
 
+                                                                      
                         // 讀取上一次的 Stock 資料
                         var oldItem = null;
-                        if (typeof (oldStockPackage) != "undefined" && oldStockPackage != null && typeof (oldStockPackage.data) != "undefined")
-                            oldItem = oldStockPackage.data[stockId];
+                        if (typeof (oldStockPackage) != "undefined" && oldStockPackage != null && typeof (oldStockPackage.data) != "undefined") {
 
-                        var stockText = StockToText(o[stockId], oldItem);
-                        str += stockText;
-                        str += "\r\n";
-                        str += "------------------------------------\r\n";      // 加上分隔線
+                            // 找出相符的 Item
+                            for (var j = 0; j < oldStockPackage.data.length; j++) {
+                                var oldDataItem = oldStockPackage.data[j];
+                                if (oldDataItem.dataSource == dataItem.dataSource && oldDataItem.stockId == dataItem.stockId) {
+                                    oldItem = oldDataItem;
+                                    break;
+                                }
+                            }                            
+                        }
+
+                        var stockText = StockToText(dataItem, oldItem);
+
+                        if ($("#simpleCheckBox").prop("checked") == false) {
+                            str += stockText;
+                            str += "\r\n------------------------------";
+                            str += "\r\n";
+                        }
+                        else {
+                            // 精簡輸出，不需要橫線
+                            str += stockText;
+                            str += "\r\n";
+                        }
+
                     }
 
                     if (oldStockPackage != null && typeof (oldStockPackage.lastTime) != "undefined") {
@@ -432,11 +506,12 @@
                     if (oldStockPackage == null)
                         oldStockPackage = {};
 
-                    oldStockPackage.stockIdList = stockIdList;
+                    oldStockPackage.twStockIdList = twStockIdList;
+                    oldStockPackage.stockQIdList = stockQIdList;
                     oldStockPackage.lastTime = new Date();
                     oldStockPackage.data = o;
 
-                    saveStockPackage(oldStockPackage);
+                    appHelper.saveStockPackage(oldStockPackage);
                     console.log("StockPackage saved. at " + (new Date).toString());
                 }
             });
@@ -464,29 +539,24 @@
 
             // 《2330 台積電》
             txt += "《" + item.stockId;
-            if (item.name != "")
+            if (item.stockName != "" && item.stockId != item.stockName)
                 txt += " " + item.stockName;
             txt += "》";
 
 
-            // 目前: 1475.000 (▲ 10.0000) (0.6849%)
-            var currentPrice = item.currentPrice;
-            if (currentPrice == "" || item.highPrice == "")
-                item.currentPrice = item.previousClosePrice;    // 如果沒有現在價格, 或者沒有高低價格, 代表未開盤，直接使用收盤價
-
+            // 如果沒有上一次資料
+            // 目前: 1475.000 (－ 0.0000) (0.0000%)
             if (typeof (oldItem) == "undefined" || oldItem == null) {
                 txt += "\r\n";
                 txt += "目前: " + item.currentPrice.toFixed(4);
                 txt += " (－ 0.0000) (0.0000%)";
             }
 
-
+            // 目前: 1475.000 (▲ 10.0000) (0.6849%)
             if (oldItem != null) {
 
                 var previousPrice = oldItem.currentPrice;
-                if (previousPrice == "" || oldItem.highPrice == "")
-                    previousPrice = oldItem.previousClosePrice;     // 取得上次價格 (沒有現在價格或者沒有高低價格, 代表未開盤, 直接使用收盤價)
-
+                
                 var deltaPrice = item.currentPrice - previousPrice;
 
                 var deltaPriceFlag = "－";
@@ -503,9 +573,11 @@
 
             // 漲跌: ▲ 15.0000 (1.0273%)
 
+            console.log(item);
+
             var deltaPreviousPrice = item.currentPrice - item.previousClosePrice;
             var deltaRatePeviousPrice = deltaPreviousPrice / item.previousClosePrice;
-            var deltaPreviousPriceFlag = "－";;
+            var deltaPreviousPriceFlag = "－";
             if (deltaPreviousPrice > 0)
                 deltaPreviousPriceFlag = "▲";
             if (deltaPreviousPrice < 0)
@@ -516,6 +588,16 @@
             txt += " " + deltaPreviousPrice.toFixed(4);
             txt += " (" + (deltaRatePeviousPrice * 100).toFixed(4) + "%)";
 
+            // 如果使用精簡輸出
+            // 00631L: 29.520 ▽-0.100(-0.33%) 
+            if ($("#simpleCheckBox").prop("checked") == true) {
+                txt = item.stockId + ": ";
+                txt += item.currentPrice.toFixed(3);
+                txt += deltaPreviousPriceFlag;
+                txt += " " + deltaPreviousPrice.toFixed(3);
+                txt += " (" + (deltaRatePeviousPrice * 100).toFixed(2) + "%)";
+            }
+
 
             return txt;
         }
@@ -525,33 +607,174 @@
 
 
 
-    <!-- Stock 讀取功能 -->
+    <!-- 資料來源 讀取功能 -->
     <script>
-        function fetchStockData(stockIdList, callback) {
+
+        async function fetchStockData(twstockIdList, stockqIdList, callback) {
+
+            // callback(err, stockData)
 
             const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-            const API_URL = isLocalhost 
-            ? 'http://localhost:3000/api/twstock' 
-            : 'https://stockv.onrender.com/api/twstock';
+            const twstockUrl = isLocalhost 
+                ? 'http://localhost:3000/api/twstock' 
+                : 'https://stockv.onrender.com/api/twstock';
 
-            console.log('目前使用的 API 網址：', API_URL);
+            const stockqUrl = isLocalhost 
+                ? 'http://localhost:3000/api/stockq' 
+                : 'https://stockv.onrender.com/api/stockq';
+            
 
-            var url = API_URL;
+            var resultList = [];
+            
+            //========== 讀取 TwStock ==========
+            console.log("Read TwStock , url=" + twstockUrl);
 
-            var postData = {
-                stockIdList: stockIdList
-            };
+            var err = null;            
+            if(twstockIdList != null && twstockIdList.length > 0) {
+                var twstockResultJo = {};   // 預設返回值
+
+                var twstockPostJo = { 
+                    stockIdList:twstockIdList 
+                };            
+
+                try {
+                    // 使用 await 等待 fetch 回應
+                    const response = await fetch(twstockUrl, {
+                    method: 'POST', // 設定 HTTP 方法為 POST
+                    headers: {
+                        'Content-Type': 'application/json' // 告訴伺服器我們傳送的是 JSON 格式
+                    },
+                    body: JSON.stringify(twstockPostJo) // 將 JavaScript 物件轉換成 JSON 字串
+                    });
+
+                    // 檢查 HTTP 狀態碼是否成功 (200-299)
+                    if (!response.ok) {
+                        console.log(`fetchStockData(): TwStock HTTP 錯誤！狀態碼：${response.status}`);
+                        err = `fetchStockData(): TwStock HTTP 錯誤！狀態碼：${response.status}`;
+                    }
+                    else {
+                        // 使用 await 等待回應內容被解析為 JSON 物件
+                        const resultJson = await response.json();
+                        twstockResultJo = resultJson.data;
+                    }                
+                } catch (error) {
+                    console.error('請求失敗：', error);
+                    err = '請求失敗：' + error;
+                }
+
+                // 存入結果
+                for(var i = 0 ; i < twstockIdList.length; i++) {
+                    var stockId = twstockIdList[i];
+                    var stockType = twstockResultJo[stockId].stockType;
+                    var stockName = twstockResultJo[stockId].stockName;
+                    var currentPrice = twstockResultJo[stockId].currentPrice;
+                    var previousClosePrice = twstockResultJo[stockId].previousClosePrice;
+                    resultList.push({
+                        dataSource: stockType,
+                        stockId: stockId,
+                        stockName: stockName,
+                        currentPrice: currentPrice,
+                        previousClosePrice: previousClosePrice                        
+                    });
+                }
+            }
+
+            //========== 讀取 StockQ ==========
+            console.log("Read StockQ , url=" + stockqUrl);
+
+            
+            if(stockqIdList != null && stockqIdList.length > 0) {
+                var stockqResultJo = {};   // 預設返回值
+
+                var stockqPostJo = { 
+                    stockIdList: stockqIdList 
+                };            
+
+                try {
+                    // 使用 await 等待 fetch 回應
+                    const response = await fetch(stockqUrl, {
+                    method: 'POST', // 設定 HTTP 方法為 POST
+                    headers: {
+                        'Content-Type': 'application/json' // 告訴伺服器我們傳送的是 JSON 格式
+                    },
+                    body: JSON.stringify(stockqPostJo) // 將 JavaScript 物件轉換成 JSON 字串
+                    });
+
+                    // 檢查 HTTP 狀態碼是否成功 (200-299)
+                    if (!response.ok) {
+                        console.log(`fetchStockData(): StockQ HTTP 錯誤！狀態碼：${response.status}`);
+                        err = `fetchStockData(): StockQ HTTP 錯誤！狀態碼：${response.status}`;
+                    }
+                    else {
+                        // 使用 await 等待回應內容被解析為 JSON 物件
+                        const resultJson = await response.json();
+                        stockqResultJo = resultJson.data;
+                    }                
+                } catch (error) {
+                    console.error('請求失敗：', error);                
+                    err = '請求失敗：' + error;
+                }
+
+                 // 存入結果
+                for(var i = 0 ; i < stockqIdList.length; i++) {
+                    var stockId = stockqIdList[i];
+                    var stockType = stockqResultJo[stockId].stockType;
+                    var stockName = stockqResultJo[stockId].stockName;
+                    var currentPrice = stockqResultJo[stockId].currentPrice;
+                    var previousClosePrice = stockqResultJo[stockId].previousClosePrice;
+                    resultList.push({
+                        dataSource: stockType,
+                        stockId: stockId,
+                        stockName: stockName,
+                        currentPrice: currentPrice,
+                        previousClosePrice: previousClosePrice                        
+                    });
+                }
+            }
+
+            // 呼叫 callback
+            if(callback != null) {
+                callback(err, resultList);
+            }
+
+            return resultList;
+        }
+
+
+
+        function fetchStockData_OLD(twStockIdList, stockQIdList, callback) {
+
+            // 產生 URL 
+            // allstock.aspx?tw=t00|2330|0050&q=美元/台幣|道瓊工業|黃金
+            var url = "allstock.aspx?tw=";
+            if (twStockIdList.length > 0) {                
+                for (var i = 0; i < twStockIdList.length; i++) {
+                    if (i > 0) {
+                        url += "|";
+                    }
+                    url += twStockIdList[i];
+                }
+            }
+
+            url += "&q=";
+            if (stockQIdList.length > 0) {                
+                for (var i = 0; i < stockQIdList.length; i++) {
+                    if (i > 0) {
+                        url += "|";
+                    }
+                    url += encodeURI(stockQIdList[i]);      // StockQ 多是中文，需要編碼
+                }
+            }
+            url += "&_=" + (new Date()).getTime();
 
             console.log("Read stock , url=" + url);
 
             // 1. 建立 XMLHttpRequest 物件
             const xhr = new XMLHttpRequest();
-            
-            // 2. 初始化請求：指定方法為 POST，目標 URL
-            xhr.open('POST', url);
 
-            xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+            // 2. 初始化請求：指定方法為 GET，目標 URL
+            xhr.open('GET', url);
 
             // 3. 設定響應類型 (可選，但有助於某些 API)
             // 這裡我們不設定，讓它預設為文本
@@ -567,8 +790,7 @@
 
                         var json = xhr.responseText;
 
-                        //var stockData = parseStockData(json);
-                        var stockData = JSON.parse(json).data;
+                        var stockData = JSON.parse(json);
 
                         callback(null, stockData);
                     } else {
@@ -587,131 +809,11 @@
             };
 
             // 6. 發送請求
-            xhr.send(JSON.stringify(postData));
-        }
-
-
-        function parseStockData(jsonText) {
-
-            var stockData = {};
-
-            var jo = JSON.parse(jsonText);
-
-            var msgArray = jo.msgArray;
-
-            for (var i = 0; i < msgArray.length; i++) {
-                var msg = msgArray[i];
-
-                var id = msg.c;             // 代號, Ex: "2330"
-                var name = msg.n;           // 名稱, Ex: "台積電"
-                var fullName = msg.nf;      // 全名: Ex: "台灣積體電路製造股份有限公司"
-                var openPrice = msg.o;      // 開盤價, Ex: 1470.0000
-                var previousClosePrice = msg.y;     // 前一日收盤價, Ex: "1460.0000"
-                var highPrice = msg.h;      // 當日最高價: Ex: "1485.0000"
-                var lowPrice = msg.l;       // 當日最低價: Ex: "1465.0000"
-                var currentPrice = msg.z;   // 盤中成交價: Ex: "-" or "1475.0000"  (如果為 - 則應該從 b 取得第一個價格)
-
-                var totalValue = msg.v;     // 累積成交量: Ex: "19367"
-                var time = msg.t;           // 報價時間: Ex: "13:24:35"
-
-                var sellPrice = msg.a;      // 揭示賣價: Ex: "1485.0000_1490.0000_1495.0000_1500.0000_1505.0000_"
-                var sellValue = msg.f;      // 揭示賣量: Ex: "315_1599_740_523_316_"
-
-                var buyPrice = msg.b;       // 揭示買價: Ex: "1480.0000_1475.0000_1470.0000_1465.0000_1460.0000_"
-                var buyValue = msg.g;       // 揭示買價: Ex: "739_931_1180_977_1467_"
-
-                if (typeof (msg.c) == "undefined" || msg.c == "")
-                    continue;
-
-                //console.log("msg=" + JSON.stringify(msg));
-
-                // 計算目前價格
-                if (typeof (currentPrice) == "undefined" || currentPrice == "-") {
-                    // 如果沒有目前價格，則從 BUY 取出價格
-                    if (typeof (msg.b) != "undefined") {
-                        var v = msg.b.split("_")[0];        // 取出第一個 BUY 價格
-                        currentPrice = v;
-                    }
-
-                    // 如果連 BUY 也沒有，則從昨天收盤價取出
-                    if ((typeof (currentPrice) == "undefined" || currentPrice == "-") && typeof (msg.y) != "undefined") {
-                        currentPrice = msg.y;
-                    }
-                }
-
-                if (typeof (id) == "undefined" || id == "-") id = "";
-                if (typeof (name) == "undefined" || name == "-") name = "";
-                if (typeof (fullName) == "undefined" || fullName == "-") fullName = "";
-                if (typeof (openPrice) == "undefined" || openPrice == "-") openPrice = "";
-                if (typeof (previousClosePrice) == "undefined" || previousClosePrice == "-") previousClosePrice = "";
-                if (typeof (highPrice) == "undefined" || highPrice == "-") highPrice = "";
-                if (typeof (lowPrice) == "undefined" || lowPrice == "-") lowPrice = "";
-                if (typeof (currentPrice) == "undefined" || currentPrice == "-") currentPrice = "";
-                if (typeof (totalValue) == "undefined" || totalValue == "-") totalValue = "";
-                if (typeof (time) == "undefined" || time == "-") time = "";
-
-
-                var data = {};
-                data.id = id;
-                data.name = name;
-                data.fullName = fullName;
-                data.openPrice = openPrice != "" ? parseFloat(openPrice) : openPrice;
-                data.previousClosePrice = previousClosePrice != "" ? parseFloat(previousClosePrice) : previousClosePrice;
-                data.highPrice = highPrice != "" ? parseFloat(highPrice) : highPrice;
-                data.lowPrice = lowPrice != "" ? parseFloat(lowPrice) : lowPrice;
-                data.currentPrice = currentPrice != "" ? parseFloat(currentPrice) : currentPrice;
-                data.totalValue = totalValue != "" ? parseFloat(totalValue) : totalValue;
-                data.time = time;
-
-                stockData[data.id] = data;
-
-                //console.log(data);
-            }
-
-            return stockData;
-        }
-
-
-
-
-
-        function fetchUrlContent(url, callback) {
-            // 1. 建立 XMLHttpRequest 物件
-            const xhr = new XMLHttpRequest();
-
-            // 2. 初始化請求：指定方法為 GET，目標 URL
-            xhr.open('GET', url);
-
-            // 3. 設定響應類型 (可選，但有助於某些 API)
-            // 這裡我們不設定，讓它預設為文本
-
-            // 4. 定義狀態改變時的回調函數
-            xhr.onreadystatechange = function () {
-                // 檢查請求是否完成 (readyState === 4)
-                if (xhr.readyState === 4) {
-                    // 檢查 HTTP 狀態碼是否成功 (200-299 範圍內通常視為成功)
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        // 請求成功
-                        // 使用 callback 回傳 null (表示沒有錯誤) 和 響應文本
-                        callback(null, xhr.responseText);
-                    } else {
-                        // 請求失敗 (例如 404 Not Found, 500 Server Error)
-                        const error = new Error(`HTTP 請求失敗，狀態碼: ${xhr.status}`);
-                        // 使用 callback 回傳 Error 物件 和 null (表示沒有內容)
-                        callback(error, null);
-                    }
-                }
-            };
-
-            // 5. 定義網路層次的錯誤處理 (例如，連線中斷、DNS 錯誤等)
-            xhr.onerror = function () {
-                const error = new Error("網路請求發生錯誤或無法連線到伺服器。");
-                callback(error, null);
-            };
-
-            // 6. 發送請求
             xhr.send();
         }
+
+
+
 
     </script>
 
