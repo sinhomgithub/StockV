@@ -1,0 +1,426 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>排程設定</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 1.0rem;
+        }        
+    </style>
+    <script src="Scripts/jquery-1.9.1.min.js"></script>
+    <script src="Scripts/appHelper.js?_=20260226003"></script>
+</head>
+<body>
+
+    <div style="padding:0.2rem;border: 0px solid black;">
+        <a href="index.html">返回</a>
+
+        <input type="button" value="啟用通知" style="padding: 0.3rem;" onclick="enabledButton_OnClick();" />
+
+        <input type="button" value="更新畫面" style="padding: 0.3rem;" onclick="reloadButton_OnClick();" />
+
+        <input type="button" value="新增" style="padding: 0.3rem;" onclick="addRowButton_OnClick();" />
+
+        <input type="button" value="儲存" style="padding: 0.3rem;" onclick="saveButton_OnClick();" />
+
+        <input type="button" value="註冊推播" style="padding: 0.3rem; display:none;" onclick="registerButton_OnClick();" />
+
+        <label>ps. 按下 [儲存] 畫面上的異動才會生效 !</label>
+    </div>
+
+
+    <table id="scheduleTable" border="1">
+        <thead>
+            <tr>
+                <th>
+                    <label>通知名稱</label>
+                </th>
+                <th><label>發生時間</label></th>
+                <th>
+                    <label>自動關閉</label>
+                </th>
+                <th>
+                    <label>通知內容</label>
+                </th>
+                <th>
+                    <label>上次通知</label>
+                </th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td valign="top">
+                    <input type="text" style="width:15.0rem; font-size:1.0rem;" class="itemNameTextBox" placeholder="Ex: 該準備吃午餐了" value="新通知" />
+                </td>
+                <td valign="top">
+                    <input type="text" style="width:9.0rem; font-size:1.0rem;" class="triggerTimeTextBox" placeholder="11:50 or 2026/4/1 9:30" value="11:50" maxlength="20" />
+                </td>
+                <td valign="top">
+                    <input type="checkbox" class="autoCloseCheckBox" />
+                </td>
+                <td valign="top">
+                    <textarea type="text" size="4" style="width:25.0rem; height:5.0rem; font-size:1.0rem;" class="itemTextTextArea" placeholder="Ex: 吃飯皇帝大，務必迅速確實 !"></textarea>
+                </td>
+                <td valign="top">
+                    <label class="lastTriggerTimeLabel" ></label>
+                </td>
+                <td valign="top">
+                    <input type="button" value="測試" style="padding: 0.3rem;" onclick="itemTest_OnClick(this);" />
+
+                    <input type="button" value="刪除" style="padding: 0.3rem;" onclick="itemDelete_OnClick(this);" />
+
+                    <input type="button" value="重設" style="padding: 0.3rem;" onclick="itemReset_OnClick(this);" />
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+
+    <div>
+        <label>ps. 當通知設定為不自動關閉時，同一時間最多只會出現三個通知。</label>
+    </div>
+
+    <!-- Row Template -->
+    <template id="rowTemplate">
+        <tr>
+            <td valign="top">
+                <input type="text" style="width:15.0rem; font-size:1.0rem;" class="itemNameTextBox" placeholder="Ex: 該準備吃午餐了" value="新通知" />
+            </td>
+            <td valign="top">
+                <input type="text" style="width:10.0rem; font-size:1.0rem;" class="triggerTimeTextBox" placeholder="11:50 or 2026/4/1 9:30" value="11:50" maxlength="20" />
+            </td>
+            <td valign="top">
+                <input type="checkbox" class="autoCloseCheckBox" />
+            </td>
+            <td valign="top">
+                <textarea type="text" size="4" style="width:25.0rem; height:5.0rem; font-size:1.0rem;" class="itemTextTextArea" placeholder="Ex: 吃飯皇帝大，務必迅速確實 !"></textarea>
+            </td>
+            <td valign="top">
+                <label class="lastTriggerTimeLabel"></label>
+                <input type="hidden" class="lastTriggerTimeHidden" />
+            </td>
+            <td valign="top">
+                <input type="button" value="測試" style="padding: 0.3rem;" onclick="itemTest_OnClick(this);" />
+
+                <input type="button" value="刪除" style="padding: 0.3rem;" onclick="itemDelete_OnClick(this);" />
+
+                <input type="button" value="重設" style="padding: 0.3rem;" onclick="itemReset_OnClick(this);" />
+            </td>
+        </tr>
+    </template>
+
+
+    <script>
+        function initialForm() {
+
+            // 載入排程設定
+            var savePackage = appHelper.loadStockPackage();
+            var scheduleList = savePackage.scheduleList;
+            if (scheduleList == null)
+                scheduleList = [];
+
+
+            var scheduleTable = $("#scheduleTable");
+            var tbody = scheduleTable.children("tbody");
+            tbody.html("");
+
+            var trs = tbody.children("tr");
+
+            for (var i = 0; i < scheduleList.length; i++) {
+                var item = scheduleList[i];
+                var itemName = item.itemName;
+                var triggerTime = item.triggerTime;
+                var autoClose = item.autoClose;
+                var itemText = item.itemText;
+                var lastTriggerTime = item.lastTriggerTime;
+
+                var lastTriggerTimeStr = "";
+                if (lastTriggerTime.getTime() > 0)
+                    lastTriggerTimeStr = lastTriggerTime.toLocaleString();
+                
+
+                var html = $("#rowTemplate").html().trim();     // 空白必須去除，否則會錯誤
+                var tr = $(html);
+
+                tr.find(".itemNameTextBox").val(itemName);
+                tr.find(".triggerTimeTextBox").val(triggerTime);
+                tr.find(".autoCloseCheckBox").prop("checked", autoClose);
+                tr.find(".itemTextTextArea").val(itemText);
+                tr.find(".lastTriggerTimeLabel").text(lastTriggerTimeStr);
+                tr.find(".lastTriggerTimeHidden").val(lastTriggerTime.getTime());
+
+                tbody.append(tr);
+            }
+
+            
+        }
+        $(document.body).ready(initialForm);
+
+        function reloadButton_OnClick() {
+            var url = "schedule.html?_=" + new Date().getTime();
+            location.href = url;
+        }
+
+        function enabledButton_OnClick() {
+
+            Notification.requestPermission().then(function (permission) {
+                if (permission === "granted") {
+                    console.log("通知權限已獲得");
+                    alert("通知權限已經允許.");
+                } else if (permission == "denied") {
+                    console.log("通知權限被拒絕");                    
+                    alert("Web 通知已經拒絕 !\r\n請在瀏覽器設定中允許通知權限，才能使用通知功能。");
+                } else {
+                    console.log("通知權限未決定");
+                    alert("通知權限未決定, 請 [允許] 通知, 否則通知功能無法運作 !");
+                }
+            });
+
+
+
+        }
+
+        function itemTest_OnClick(item) {
+            var tr = $(item).parent("td").parent("tr");
+
+            var itemNameTextBox = tr.find(".itemNameTextBox");
+            var triggerTimeTextBox = tr.find(".triggerTimeTextBox");
+            var autoCloseCheckBox = tr.find(".autoCloseCheckBox");
+            var itemTextTextArea = tr.find(".itemTextTextArea");
+
+            var title = itemNameTextBox.val();
+            var body = itemTextTextArea.val();
+
+
+            // 檢查目前的權限狀態
+            const permissionStatus = Notification.permission;
+            console.log("目前的通知權限狀態為:", permissionStatus);
+
+            if (permissionStatus === "granted") {
+            } else if (permissionStatus === "denied") {
+                console.log("Web 通知已被拒絕。");                
+                alert("Web 通知已經拒絕, 無法執行測試 !");
+                return;
+            } else if (permissionStatus === "default") {
+                alert("Web 通知尚未開啟, 請先開啟通知 !");
+                return;
+            }
+
+
+
+
+            var notify = new Notification(title, {
+                body: body,
+                tag: "message-notification" + (new Date()).getTime(),
+                renotify: true,
+                requireInteraction: true,
+                silent: false
+            });
+
+            notify.onclick = function () {
+                notify.close();
+            }
+
+            if (autoCloseCheckBox.prop("checked") == true) {
+                // 5 秒後關閉通知
+                setTimeout(function () {
+                    notify.close();
+                }, 5000);
+            }
+
+            console.log("show notify !\r\n" + title + "\r\n" + body);
+
+        }
+
+        function itemDelete_OnClick(item) {
+
+            //if (confirm("你確定要刪除這筆通知嗎 ?") == false)
+            //    return;
+
+            var tr = $(item).parent("td").parent("tr");
+
+            console.log(tr.remove());
+        }
+
+        function itemReset_OnClick(item) {
+            var tr = $(item).parent("td").parent("tr");
+
+            // 重設單筆觸發時間
+            tr.find(".lastTriggerTimeLabel").val("");
+            tr.find(".lastTriggerTimeHidden").val("0");
+
+            // 儲存設定
+            saveGridToStorage();
+
+            // 更新畫面
+            reloadButton_OnClick();
+        }
+
+
+        function addRowButton_OnClick() {
+            var scheduleTable = $("#scheduleTable");
+            var tbody = scheduleTable.children("tbody");
+
+            var html = $("#rowTemplate").html().trim();     // 空白必須去除，否則會錯誤
+            var tr = $(html);
+
+            tbody.append(tr);
+        }
+
+        function saveButton_OnClick() {
+            // 將 GRID 內容存到 Storage
+            saveGridToStorage();
+
+            // 更新畫面
+            reloadButton_OnClick();
+        }
+
+        function saveGridToStorage() {
+
+            var scheduleList = [];
+
+            var scheduleTable = $("#scheduleTable");
+            var tbody = scheduleTable.children("tbody");
+
+            var trs = tbody.children("tr");
+
+            for (var i = 0; i < trs.length; i++) {
+                var tr = trs.eq(i);
+
+                var itemNameTextBox = tr.find(".itemNameTextBox");
+                var triggerTimeTextBox = tr.find(".triggerTimeTextBox");
+                var autoCloseCheckBox = tr.find(".autoCloseCheckBox");
+                var itemTextTextArea = tr.find(".itemTextTextArea");
+                var lastTriggerTimeHidden = tr.find(".lastTriggerTimeHidden");
+
+                var lastTriggerTime = new Date(parseInt(lastTriggerTimeHidden.val(), 10));        // 將 tick 轉成 Date 物件
+
+                if (itemNameTextBox.val() == "") {
+                    alert("[通知名稱] 未輸入 !");
+                    return;
+                }
+
+                if (triggerTimeTextBox.val() == "") {
+                    alert("[發生時間] 未輸入 !\r\nEx: 11:50");
+                    return;
+                }
+
+                var triggerTime = appHelper.validTimeFormat(triggerTimeTextBox.val());
+                if (triggerTime == "") {
+                    triggerTime = appHelper.validDateTimeFormat(triggerTimeTextBox.val());
+                }
+
+                if (triggerTime == "") {
+                    alert("[" + itemNameTextBox.val() + "] 通知時間格式錯誤 !\r\n請輸入 [HH:MM] 或者 [YYYY/mm/DD HH:mm] 格式\r\nEx: 11:50 or 2026/4/5 11:6");
+                    return;
+                }
+
+                var o = {
+                    itemName: itemNameTextBox.val(),
+                    triggerTime: triggerTime,
+                    autoClose: autoCloseCheckBox.prop("checked"),
+                    itemText: itemTextTextArea.val(),
+                    lastTriggerTime: lastTriggerTime
+                };
+
+
+                scheduleList.push(o);
+            }
+
+            // 根據觸發時間排序
+            scheduleList.sort(function (a, b) {
+                if (a.triggerTime > b.triggerTime) {
+                    return 1;
+                }
+                if (a.triggerTime < b.triggerTime) {
+                    return -1;
+                }
+                return 0;
+            });
+
+
+
+
+            var savePackage = appHelper.loadStockPackage();
+            savePackage.scheduleList = scheduleList;
+            appHelper.saveStockPackage(savePackage);
+
+            console.log("Save Schedule :");
+            console.log(savePackage);            
+        }
+
+      
+
+
+
+    </script>
+
+    <script>
+
+        var VAPID_PUBLIC_KEY = "BP6uAdgXNs3qPbNnn2Dd-mm7rJDg4Y4uUn0a-2uqooAA8NL4I9a4UH-jbWfGgnUlhdV8wb1qMctcscuXoDneDHU";
+        async function registerButton_OnClick() {
+
+            try {
+                // 1. 檢查瀏覽器是否支援 Service Worker
+                if (!('serviceWorker' in navigator)) {
+                    alert('此瀏覽器不支援 Service Worker');
+                    return;
+                }
+
+                // 2. 註冊 Service Worker (確保根目錄有 sw.js 檔案)
+                const registration = await navigator.serviceWorker.register('./sw.js');
+                console.log('Service Worker 已註冊');
+
+                // 3. 要求推播通知權限
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    alert('通知權限被拒絕');
+                    return;
+                }
+
+                // 4. 向瀏覽器推播伺服器要求訂閱資訊
+                var skey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+                console.log(skey);
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true, // 強制規定必須顯示通知給使用者看
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
+
+                // 5. 這是你要傳給 C# 後端的 JSON 資料
+                console.log('訂閱成功！JSON 如下：');
+                console.log(JSON.stringify(subscription));
+
+                alert('訂閱成功，請查看 Console 取得 JSON 資料');
+
+            } catch (error) {
+                console.error('訂閱失敗:', error);
+            }
+        }
+
+        /**
+        * 輔助工具：將 Base64 公鑰轉為瀏覽器需要的 Uint8Array 格式
+        */
+        function urlBase64ToUint8Array(base64String) {
+            // 移除可能存在的換行或空格
+            const cleanString = base64String.trim();
+            const padding = '='.repeat((4 - cleanString.length % 4) % 4);
+            const base64 = (cleanString + padding)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+
+            const rawData = window.atob(base64);
+            return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+        }
+
+    </script>
+
+  
+
+
+
+</body>
+</html>
